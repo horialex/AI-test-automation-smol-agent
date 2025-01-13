@@ -1,6 +1,10 @@
 from smolagents import tool
 from huggingface_hub import list_models
-
+import subprocess
+from markdownify import markdownify
+from requests.exceptions import RequestException
+import requests
+import re
 
 @tool
 def model_download_tool(task: str) -> str:
@@ -18,31 +22,50 @@ def model_download_tool(task: str) -> str:
 @tool
 def write_testcase_file(filename: str, task: str) -> str:
     """
-    This is a tool that returns saved file name.
-    It returns saved filename.
+    Save a task description into a test case file and return the saved file name.
+
+    This tool saves the provided task description into a file in the `test_cases` directory.
+    If the directory does not exist, it will be created.
 
     Args:
-        task: The task to save file into local directory.
-        filename: name of the test case file.
-    """
-    with open(f"test_cases/{filename}", 'w') as file:
-        file.write(task)
+        filename: The name of the test case file to be created. 
+                    This should include the file extension (e.g., "test_case_1.txt").
+        task: The task description or content to be saved in the file.
 
-    print(f"File created successfully")
-    return f"saved filed name is: {filename}"
+    Returns:
+        str: A confirmation message with the name of the saved file.
+
+    Raises:
+        IOError: If the file cannot be created or written.
+    """
+    try:
+        # Write the task to the specified file
+        with open(f"features/{filename}", 'w') as file:
+            file.write(task)
+
+        print(f"File created successfully")
+        return f"Saved file name is: {filename}"
+    except IOError as e:
+        return f"An error occurred while saving the file: {e}"
 
 @tool
 def read_testcase_file(filename: str, task: str) -> str:
     """
-    This is a tool that read feature file for execution.
-    It returns file content.
+    Read the contents of a test case file and return its content.
+
+    This tool reads the content of a specified test case file from the `test_cases` directory.
+    If the file does not exist or cannot be read, an appropriate error message is returned.
 
     Args:
+        filename: The name of the test case file to be read. 
+                        This should include the file extension (e.g., "test_case_1.txt").
         task: The task to read file from filename.
-        filename: name of the test case file.
+
+    Returns: The content of the test case file if it is successfully read, 
+             or an error message if the file cannot be found or read.
     """
     try:
-        with open(f"test_cases/{filename}", 'r') as file:
+        with open(f"features/{filename}", 'r') as file:
             content = file.read()
     except FileNotFoundError:
         return "Error: File not found."
@@ -54,17 +77,68 @@ def read_testcase_file(filename: str, task: str) -> str:
     print(f"File created successfully")
     return str(content)
 
+
 @tool
-def report(task: str) -> str:
+def save_code_to_file(code: str, codefilename: str) -> str:
     """
-    test execution report in json
-    It save report json file.
+    Save LLM-generated code into a specified file.
 
     Args:
-        task: The task to save test execution report in json format
-    """
-    with open('reports/result.json', 'w') as file:
-        file.write(task)
+        code: The code to be saved into the file. This should be a valid string containing Python or any other language code.
+        codefilename: The name of the file to save the code in. Defaults to "generated_code.py". 
+                        The file will be created in the 'generated_code' directory.
 
-    print(f"File created successfully")
-    return f"saved filed name is result.json"
+    Returns:
+        str: A confirmation message if the code is successfully saved, or an error message if something goes wrong.
+    """
+    
+    try:
+        with open(f"src/{codefilename}", "w") as file:
+            file.write(code)
+        return f"Code successfully saved to {codefilename}"
+    except Exception as e:
+        return f"Failed to save code: {e}"
+
+@tool
+def execute_api_test(codefilename: str, task: str) -> str:
+    """
+    This is a tool is to execute api test using pytest
+    It returns saved filename.
+
+    Args:
+        task: The task to pytest code in file
+        codefilename: name of the test code file.
+    """
+    result = subprocess.run(['pytest', './src/{}'.format(codefilename), '--html=report/report.html'], capture_output=True, text=True)    
+    
+    print(result.stdout)
+    return f"saved filed name is: {codefilename}"
+
+@tool
+
+def visit_webpage(url: str) -> str:
+    """Visits a webpage at the given URL and returns its content as a markdown string.
+
+    Args:
+        url: The URL of the webpage to visit.
+
+    Returns:
+        The content of the webpage converted to Markdown, or an error message if the request fails.
+    """
+    try:
+        # Send a GET request to the URL
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for bad status codes
+
+        # Convert the HTML content to Markdown
+        markdown_content = markdownify(response.text).strip()
+
+        # Remove multiple line breaks
+        markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
+
+        return markdown_content
+
+    except RequestException as e:
+        return f"Error fetching the webpage: {str(e)}"
+    except Exception as e:
+        return f"An unexpected error occurred: {str(e)}"

@@ -2,3 +2,6 @@ venv
 .env
 tools/__pycache__
 __pycache__
+.pytest_cache
+test_cases/api_test.py
+src/api_test.py
