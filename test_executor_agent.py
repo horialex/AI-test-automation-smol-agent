@@ -14,7 +14,7 @@ model_id = "Qwen/Qwen2.5-Coder-32B-Instruct"
 
 
 test_executor_agent = CodeAgent(
-    tools=[read_testcase_file,report],
+    tools=[read_testcase_file, report],
     model=HfApiModel(model_id=model_id,token=access_token), 
     additional_authorized_imports=['requests', 'bs4', 'pytest-bdd', 'pytest', 'os', 'pytest_bdd' 'json']
 )

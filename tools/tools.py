@@ -5,6 +5,8 @@ from markdownify import markdownify
 from requests.exceptions import RequestException
 import requests
 import re
+import json
+from typing import Dict
 
 @tool
 def model_download_tool(task: str) -> str:
@@ -100,19 +102,27 @@ def save_code_to_file(code: str, codefilename: str) -> str:
         return f"Failed to save code: {e}"
 
 @tool
-def execute_api_test(codefilename: str, task: str) -> str:
+def execute_api_test(codefilename: str) -> str:
     """
-    This is a tool is to execute api test using pytest
-    It returns saved filename.
-
-    Args:
-        task: The task to pytest code in file
-        codefilename: name of the test code file.
-    """
-    result = subprocess.run(['pytest', './src/{}'.format(codefilename), '--html=report/report.html'], capture_output=True, text=True)    
+    Execute API test using pytest and return the result.
     
-    print(result.stdout)
-    return f"saved filed name is: {codefilename}"
+    Args:
+        codefilename: Name of the test code file.
+    """
+    result = subprocess.run(
+        ['pytest', f'./src/{codefilename}', '--html=report/report.html', '--self-contained-html'],
+        capture_output=True, 
+        text=True
+    )    
+    
+    print("***** EXECUTING API TEST *****")
+    print(f"STDOUT:\n{result.stdout}")
+    print(f"STDERR:\n{result.stderr}")
+    
+    if result.returncode != 0:
+        return f"Test execution failed. Check the report and logs.\nError:\n{result.stderr}"
+    
+    return f"Test executed successfully. Saved file name is: {codefilename}"
 
 @tool
 
@@ -142,3 +152,31 @@ def visit_webpage(url: str) -> str:
         return f"Error fetching the webpage: {str(e)}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
+    
+@tool
+def write_api_test_report(filename: str, report_data: Dict[str, str]) -> str:
+    """
+    Writes an API test report to a JSON file.
+
+    Args:
+        filename: The name of the file to save the report (e.g., "api_test_report.json").
+        report_data: A dictionary containing test report details such as:
+                     - Host
+                     - Request Type (GET, PUT, POST, etc.)
+                     - Request Route
+                     - Expected Status
+                     - Actual Status
+                     - Test Status (Passed or Failed)
+
+    Returns:
+        str: Confirmation message if the report is saved successfully, 
+             or an error message if saving fails.
+    """
+    try:
+        # Save the report as a JSON file
+        with open(f"reports/{filename}", 'w') as file:
+            json.dump(report_data, file, indent=4)
+
+        return f"API test report saved to: {filename}"
+    except IOError as e:
+        return f"Error saving API test report: {e}"    
